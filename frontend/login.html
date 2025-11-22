@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Smart Attendance System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f5ff, #e8faff);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Poppins", sans-serif;
+        }
+        .login-box {
+            width: 400px;
+            background: white;
+            padding: 40px;
+            border-radius: 25px;
+            box-shadow: 0px 6px 14px rgba(0,0,0,0.1);
+        }
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #6c63ff;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .btn-login {
+            background: #6c63ff;
+            color: white;
+            font-size: 18px;
+            padding: 10px;
+            border-radius: 12px;
+            width: 100%;
+            transition: 0.3s;
+        }
+        .btn-login:hover {
+            background: #584dd6;
+        }
+        select, input {
+            border-radius: 10px !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-box">
+        <div class="title">Smart Attendance</div>
+
+        <!-- Role -->
+        <div class="mb-3">
+            <label class="form-label">Login as</label>
+            <select class="form-control" id="roleSelect">
+                <option value="" selected disabled>Choose role</option>
+                <option value="admin">Admin</option>
+                <option value="student">Student</option>
+            </select>
+        </div>
+
+        <!-- Username -->
+        <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" id="usernameInput">
+        </div>
+
+        <!-- Password -->
+        <div class="mb-4">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="passwordInput">
+        </div>
+
+        <button class="btn btn-login" onclick="loginUser()">Login</button>
+    </div>
+
+<script>
+function loginUser() {
+    let role = document.getElementById("roleSelect").value;
+    let username = document.getElementById("usernameInput").value.trim();
+    let password = document.getElementById("passwordInput").value.trim();
+
+    if (!role || !username || !password) {
+        alert("Please fill all fields ✨");
+        return;
+    }
+
+    // ★ For now we are NOT connecting backend
+    // Using dummy temporary credentials
+    if (role === "admin") {
+        if (username === "admin" && password === "admin123") {
+            window.location.href = "admin-dashboard.html";
+        } else {
+            alert("Invalid admin credentials");
+        }
+    }
+
+    if (role === "student") {
+        if (username === "student" && password === "student123") {
+            window.location.href = "student-dashboard.html";
+        } else {
+            alert("Invalid student credentials");
+        }
+    }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Group Photo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <style>
+        body { background: #f0fffa; font-family: Poppins; }
+        .box {
+            max-width: 600px;
+            margin: 60px auto;
+            background: white;
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; color: #4bb58b; margin-bottom: 20px; }
+        button { background: #4bb58b !important; }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Upload Group Photo</h2>
+
+    <form id="groupForm">
+        <input type="file" class="form-control mb-3" id="groupImage" required>
+        <button class="btn btn-success w-100">Upload</button>
+    </form>
+
+    <p class="text-center mt-3">
+        <a href="admin-dashboard.html">← Back to Dashboard</a>
+    </p>
+</div>
+
+<script src="upload-group.js"></script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Smart Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-box {
+            width: 420px;
+            background: white;
+            padding: 50px;
+            border-radius: 25px;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.15);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo i {
+            font-size: 4rem;
+            color: var(--primary-color);
+        }
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="logo">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="title">Smart Attendance</div>
+
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label">Login as</label>
+                <select class="form-select" id="roleSelect" required>
+                    <option value="" selected disabled>Choose role</option>
+                    <option value="admin">Admin</option>
+                    <option value="student">Student</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" id="usernameLabel">Username</label>
+                <input type="text" class="form-control" id="usernameInput" required>
+                <small class="text-muted" id="usernameHint"></small>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" id="passwordInput" required>
+                <small class="text-muted" id="passwordHint"></small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-login">
+                <i class="fas fa-sign-in-alt me-2"></i>Login
+            </button>
+        </form>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Change label based on role
+        document.getElementById('roleSelect').addEventListener('change', function() {
+            const role = this.value;
+            const usernameLabel = document.getElementById('usernameLabel');
+            const usernameInput = document.getElementById('usernameInput');
+            const usernameHint = document.getElementById('usernameHint');
+            const passwordHint = document.getElementById('passwordHint');
+            
+            if (role === 'student') {
+                usernameLabel.textContent = 'USN (University Seat Number)';
+                usernameInput.placeholder = 'Enter your USN';
+                usernameHint.textContent = 'Use your registered USN';
+                passwordHint.textContent = 'Default password is your USN';
+            } else {
+                usernameLabel.textContent = 'Username';
+                usernameInput.placeholder = 'Enter username';
+                usernameHint.textContent = '';
+                passwordHint.textContent = '';
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const role = document.getElementById('roleSelect').value;
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+
+            if (role === 'admin') {
+                // Admin login
+                try {
+                    const response = await fetch(API.auth.adminLogin, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        sessionStorage.setItem('userRole', 'admin');
+                        sessionStorage.setItem('username', username);
+                        window.location.href = 'admin/dashboard.html';
+                    } else {
+                        alert(data.error || 'Invalid admin credentials!');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    alert('Login failed. Please check if backend is running.');
+                }
+            } else if (role === 'student') {
+                // Student login with USN
+                try {
+                    const response = await fetch(API.auth.studentLogin, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ usn: username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Store student info
+                        sessionStorage.setItem('userRole', 'student');
+                        sessionStorage.setItem('studentData', JSON.stringify(data.student));
+                        sessionStorage.setItem('username', data.student.name);
+                        sessionStorage.setItem('usn', data.student.usn);
+                        window.location.href = 'student/dashboard.html';
+                    } else {
+                        alert(data.error || 'Invalid USN or password!');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    alert('Login failed. Please check if backend is running.');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

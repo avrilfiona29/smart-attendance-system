@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+  <style>
+    body {
+      background: #f8f6ff;
+    }
+
+    .logout-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: #ff6b6b;
+      border: none;
+      color: white;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .logout-btn:hover {
+      background: #ff4a4a;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-4px);
+      transition: 0.3s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <button class="logout-btn" onclick="window.location.href='/login.html'">Logout</button>
+
+  <div class="container mt-5">
+    <h2 class="text-center mb-4" style="color:#6a5acd;">🎓 Student Dashboard</h2>
+
+    <div class="row mt-4">
+
+      <div class="col-md-6">
+        <a href="student-view-attendance.html" class="text-decoration-none">
+          <div class="card card-hover shadow-sm p-4">
+            <h4 style="color:#6a5acd;">View Attendance</h4>
+            <p>Check your daily/overall attendance.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-md-6">
+        <a href="student-profile.html" class="text-decoration-none">
+          <div class="card card-hover shadow-sm p-4">
+            <h4 style="color:#6a5acd;">My Profile</h4>
+            <p>See your registered details.</p>
+          </div>
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+</body>
+</html>
