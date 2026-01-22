@@ -138,8 +138,8 @@ Access the application at `http://localhost:8080`
 - Password: `admin123`
 
 **Student:**
-- Username: `student`
-- Password: `student123`
+- Username: `usn`
+- Password: `usn`
 
 ## API Endpoints
 
