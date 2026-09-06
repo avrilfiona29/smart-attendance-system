@@ -1,37 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const Student = require('../models/Student');
+const studentModel = require('../models/studentModel');
 
-// POST /auth/student-login
-router.post('/student-login', async (req, res) => {
-  try {
-    const { usn, password } = req.body;
+// Student Login
+router.post('/student-login', (req, res) => {
+  const { usn, password } = req.body;
 
-    if (!usn || !password) {
-      return res.status(400).json({ error: 'USN and password are required' });
-    }
-
-    const student = await Student.findOne({ usn: usn.toUpperCase() });
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    const studentPassword = student.password || student.usn;
-    if (password !== studentPassword) {
-      return res.status(401).json({ error: 'Invalid password' });
-    }
-
-    // Return student info without password
-    const studentData = student.toObject();
-    delete studentData.password;
-
-    res.json({ message: 'Login successful', student: studentData });
-  } catch (err) {
-    res.status(500).json({ error: 'Login failed', details: err.message });
+  if (!usn || !password) {
+    return res.status(400).json({ error: 'USN and password are required' });
   }
+
+  const student = studentModel.getStudentByUsn(usn);
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  const studentPassword = student.password || student.usn;
+  if (password !== studentPassword) return res.status(401).json({ error: 'Invalid password' });
+
+  const { password: _, ...studentData } = student;
+  res.json({ message: 'Login successful', student: studentData });
 });
 
-// POST /auth/admin-login
+// Admin Login
 router.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
 
