@@ -1,27 +1,15 @@
 const express = require('express');
-const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
-const https = require('https');
+const FormData = require('form-data');
+const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
 const Attendance = require('../models/Attendance');
 const { uploadGroupPhoto, cloudinary } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Helper: download a file from URL to a temp path (needed for Python script)
-function downloadToTemp(url, destPath) {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(destPath);
-    https.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => { file.close(); resolve(); });
-    }).on('error', (err) => {
-      fs.unlink(destPath, () => {});
-      reject(err);
-    });
-  });
-}
+// Hugging Face Space URL for face recognition
+const HF_RECOGNIZE_URL = process.env.HF_RECOGNIZE_URL || 'https://your-space.hf.space/recognize';
 
 // GET /attendance/today
 router.get('/today', async (req, res) => {
@@ -45,50 +33,47 @@ router.get('/today', async (req, res) => {
 router.post('/mark', uploadGroupPhoto.single('groupImage'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  const cloudinaryUrl = req.file.path;     // Cloudinary URL
-  const cloudinaryId  = req.file.filename; // Cloudinary public_id
-
-  // Download image to a temp file so Python can read it
-  const tempPath = path.join(os.tmpdir(), `group_${Date.now()}.jpg`);
+  const cloudinaryUrl = req.file.path;
+  const cloudinaryId  = req.file.filename;
 
   try {
-    await downloadToTemp(cloudinaryUrl, tempPath);
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to download image for processing' });
-  }
+    // Fetch the image from Cloudinary and forward to Hugging Face
+    const imageResponse = await fetch(cloudinaryUrl);
+    const imageBuffer = await imageResponse.buffer();
 
-  const pythonPath = path.join(__dirname, '../python/recognize.py');
-  const py = spawn('python', [pythonPath, tempPath]);
+    const form = new FormData();
+    form.append('file', imageBuffer, {
+      filename: req.file.originalname || 'group.jpg',
+      contentType: req.file.mimetype || 'image/jpeg',
+    });
 
-  let stdout = '';
-  let stderr = '';
+    const hfResponse = await fetch(HF_RECOGNIZE_URL, {
+      method: 'POST',
+      body: form,
+      headers: form.getHeaders(),
+    });
 
-  py.stdout.on('data', (data) => { stdout += data.toString(); });
-  py.stderr.on('data', (data) => { stderr += data.toString(); });
-
-  py.on('close', async () => {
-    // Clean up temp file
-    fs.unlink(tempPath, () => {});
-
-    if (stderr) console.error('PYTHON STDERR:', stderr);
-
-    try {
-      const result = JSON.parse(stdout);
-
-      const record = new Attendance({
-        date: new Date(),
-        groupImage: { url: cloudinaryUrl, public_id: cloudinaryId },
-        present: result.present,
-        absent: result.absent,
-      });
-
-      await record.save();
-      return res.json({ success: true, result });
-    } catch (err) {
-      console.error('Recognition parse error:', err);
-      return res.status(500).json({ error: 'Recognition failed', details: stderr || err.message });
+    if (!hfResponse.ok) {
+      const errText = await hfResponse.text();
+      return res.status(500).json({ error: 'Recognition service error', details: errText });
     }
-  });
+
+    const result = await hfResponse.json();
+
+    const record = new Attendance({
+      date: new Date(),
+      groupImage: { url: cloudinaryUrl, public_id: cloudinaryId },
+      present: result.present,
+      absent: result.absent,
+    });
+
+    await record.save();
+    return res.json({ success: true, result });
+
+  } catch (err) {
+    console.error('Attendance mark error:', err);
+    return res.status(500).json({ error: 'Recognition failed', details: err.message });
+  }
 });
 
 // GET /attendance/history
