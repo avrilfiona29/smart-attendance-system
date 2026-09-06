@@ -1,102 +1,114 @@
 const express = require('express');
 const router = express.Router();
-const studentModel = require('../models/studentModel');
-const upload = require("../middleware/studentUpload");
+const Student = require('../models/Student');
+const { uploadStudentImages, cloudinary } = require('../config/cloudinary');
 
+// POST /students/add — Add new student with face photos
+router.post('/add', uploadStudentImages.array('images', 5), async (req, res) => {
+  try {
+    const { name, usn, department, year, email, password } = req.body;
 
-// Add Student with image upload
-router.post('/add', upload.array("images", 5), (req, res) => {
-  const { name, usn, department, year, email, password } = req.body;
+    if (!name || !usn) {
+      return res.status(400).json({ error: 'Name and USN are required' });
+    }
 
-  if (!name || !usn) {
-    return res.status(400).json({ error: 'Name and USN are required' });
+    // Check if USN already exists
+    const existing = await Student.findOne({ usn: usn.toUpperCase() });
+    if (existing) {
+      return res.status(400).json({ error: 'Student with this USN already exists' });
+    }
+
+    // Map uploaded files to image objects (Cloudinary gives us url + public_id)
+    const images = req.files
+      ? req.files.map((f) => ({
+          url: f.path,           // Cloudinary URL
+          public_id: f.filename, // Cloudinary public_id
+          filename: f.originalname,
+        }))
+      : [];
+
+    const student = new Student({
+      name,
+      usn,
+      department,
+      year,
+      email,
+      password: password || usn,
+      images,
+    });
+
+    await student.save();
+    res.json({ message: 'Student added successfully', student });
+  } catch (err) {
+    console.error('Add student error:', err);
+    res.status(500).json({ error: 'Failed to add student', details: err.message });
   }
-
-  // Multer will store files in uploads folder
-  const imageFiles = req.files ? req.files.map(f => f.filename) : [];
-
-  // Use USN as default password if not provided
-  const studentPassword = password || usn;
-
-  const result = studentModel.addStudent({
-    name,
-    usn,
-    department,
-    year,
-    email,
-    password: studentPassword,
-    images: imageFiles
-  });
-
-  res.json({ message: 'Student added successfully', student: result });
 });
 
-
-
-// Get all
-router.get('/all', (req, res) => {
-  res.json(studentModel.getAllStudents());
+// GET /students/all — Get all students
+router.get('/all', async (req, res) => {
+  try {
+    const students = await Student.find().select('-password');
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
 });
 
-// Update Student
-router.put("/update/:id", (req, res) => {
-  const studentId = req.params.id;
-  const updatedData = req.body;
-
-  const result = studentModel.updateStudent(studentId, updatedData);
-
-  if (!result) {
-    return res.status(404).json({ error: "Student not found" });
+// PUT /students/update/:id — Update student details
+router.put('/update/:id', async (req, res) => {
+  try {
+    const student = await Student.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true }
+    );
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json({ message: 'Student updated successfully', student });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update student' });
   }
-
-  res.json({ message: "Student updated successfully", student: result });
 });
 
+// DELETE /students/delete/:id — Delete a student (also removes Cloudinary images)
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
 
-// Delete student
-router.delete('/delete/:id', (req, res) => {
-  const { id } = req.params;
+    // Delete images from Cloudinary
+    for (const img of student.images) {
+      if (img.public_id) {
+        await cloudinary.uploader.destroy(img.public_id).catch(() => {});
+      }
+    }
 
-  const success = studentModel.deleteStudent(id);
-
-  if (!success) {
-    return res.status(404).json({ error: 'Student not found' });
+    await Student.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Student deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete student' });
   }
-
-  res.json({ message: 'Student deleted successfully' });
 });
 
+// POST /students/upload-image/:usn — Upload more images for existing student
+router.post('/upload-image/:usn', uploadStudentImages.array('images', 10), async (req, res) => {
+  try {
+    const student = await Student.findOne({ usn: req.params.usn.toUpperCase() });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
 
+    const newImages = req.files.map((f) => ({
+      url: f.path,
+      public_id: f.filename,
+      filename: f.originalname,
+    }));
 
-// Upload images for an existing student
-router.post('/upload-image/:usn', upload.array('images', 10), (req, res) => {
-  const usn = req.params.usn;
+    student.images.push(...newImages);
+    await student.save();
 
-  // Get all students
-  const students = studentModel.getAllStudents();
-
-  // Find student index
-  const index = students.findIndex(s => s.usn === usn);
-
-  if (index === -1) {
-    return res.status(404).json({ error: "Student not found" });
+    res.json({ message: 'Images uploaded successfully', images: student.images });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to upload images' });
   }
-
-  // Uploaded files → only store filename
-  const newImages = req.files.map(file => file.filename);
-
-  // Update student
-  students[index].images.push(...newImages);
-
-  // Save back to DB
-  studentModel.saveStudents(students);
-
-  res.json({
-    message: "Images uploaded successfully",
-    images: students[index].images
-  });
 });
 
 module.exports = router;
-
-

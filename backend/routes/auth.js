@@ -1,39 +1,37 @@
 const express = require('express');
 const router = express.Router();
-const studentModel = require('../models/studentModel');
+const Student = require('../models/Student');
 
-// Student Login
-router.post('/student-login', (req, res) => {
-  const { usn, password } = req.body;
+// POST /auth/student-login
+router.post('/student-login', async (req, res) => {
+  try {
+    const { usn, password } = req.body;
 
-  if (!usn || !password) {
-    return res.status(400).json({ error: 'USN and password are required' });
+    if (!usn || !password) {
+      return res.status(400).json({ error: 'USN and password are required' });
+    }
+
+    const student = await Student.findOne({ usn: usn.toUpperCase() });
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const studentPassword = student.password || student.usn;
+    if (password !== studentPassword) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    // Return student info without password
+    const studentData = student.toObject();
+    delete studentData.password;
+
+    res.json({ message: 'Login successful', student: studentData });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed', details: err.message });
   }
-
-  // Get student by USN
-  const student = studentModel.getStudentByUsn(usn);
-
-  if (!student) {
-    return res.status(404).json({ error: 'Student not found' });
-  }
-
-  // Check password (use USN as default if no password set)
-  const studentPassword = student.password || student.usn;
-
-  if (password !== studentPassword) {
-    return res.status(401).json({ error: 'Invalid password' });
-  }
-
-  // Return student info (without password)
-  const { password: _, ...studentData } = student;
-  
-  res.json({ 
-    message: 'Login successful',
-    student: studentData
-  });
 });
 
-// Admin Login (simple check)
+// POST /auth/admin-login
 router.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
 
@@ -41,13 +39,8 @@ router.post('/admin-login', (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Simple admin check (you can enhance this later)
   if (username === 'admin' && password === 'admin123') {
-    res.json({ 
-      message: 'Login successful',
-      role: 'admin',
-      username: username
-    });
+    res.json({ message: 'Login successful', role: 'admin', username });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
   }

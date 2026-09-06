@@ -1,4 +1,6 @@
 // API Configuration
+// Change this to your Render backend URL after deployment
+// Example: const API_BASE_URL = 'https://smart-attendance-backend.onrender.com';
 const API_BASE_URL = 'http://localhost:5000';
 
 // API Endpoints
