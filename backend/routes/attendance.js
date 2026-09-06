@@ -1,15 +1,30 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const FormData = require('form-data');
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+const { spawn } = require('child_process');
+const os = require('os');
+const https = require('https');
 const Attendance = require('../models/Attendance');
 const { uploadGroupPhoto, cloudinary } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Hugging Face Space URL for face recognition
-const HF_RECOGNIZE_URL = process.env.HF_RECOGNIZE_URL || 'https://your-space.hf.space/recognize';
+// Detect if we're running in cloud mode (no local Python available)
+const IS_CLOUD = process.env.IS_CLOUD === 'true';
+
+// Helper: download a file from URL to a temp path
+function downloadToTemp(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    https.get(url, (response) => {
+      response.pipe(file);
+      file.on('finish', () => { file.close(); resolve(); });
+    }).on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
+}
 
 // GET /attendance/today
 router.get('/today', async (req, res) => {
@@ -25,7 +40,7 @@ router.get('/today', async (req, res) => {
 
     res.json({ attendance: records });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch today\'s attendance' });
+    res.status(500).json({ error: "Failed to fetch today's attendance" });
   }
 });
 
@@ -36,44 +51,54 @@ router.post('/mark', uploadGroupPhoto.single('groupImage'), async (req, res) => 
   const cloudinaryUrl = req.file.path;
   const cloudinaryId  = req.file.filename;
 
-  try {
-    // Fetch the image from Cloudinary and forward to Hugging Face
-    const imageResponse = await fetch(cloudinaryUrl);
-    const imageBuffer = await imageResponse.buffer();
-
-    const form = new FormData();
-    form.append('file', imageBuffer, {
-      filename: req.file.originalname || 'group.jpg',
-      contentType: req.file.mimetype || 'image/jpeg',
+  // In cloud mode, face recognition is not available
+  // The image is saved to Cloudinary but recognition must be run locally
+  if (IS_CLOUD) {
+    return res.status(503).json({
+      error: 'Face recognition is not available in cloud mode',
+      message: 'Please run the system locally to mark attendance using face recognition',
+      imageUploaded: cloudinaryUrl
     });
-
-    const hfResponse = await fetch(HF_RECOGNIZE_URL, {
-      method: 'POST',
-      body: form,
-      headers: form.getHeaders(),
-    });
-
-    if (!hfResponse.ok) {
-      const errText = await hfResponse.text();
-      return res.status(500).json({ error: 'Recognition service error', details: errText });
-    }
-
-    const result = await hfResponse.json();
-
-    const record = new Attendance({
-      date: new Date(),
-      groupImage: { url: cloudinaryUrl, public_id: cloudinaryId },
-      present: result.present,
-      absent: result.absent,
-    });
-
-    await record.save();
-    return res.json({ success: true, result });
-
-  } catch (err) {
-    console.error('Attendance mark error:', err);
-    return res.status(500).json({ error: 'Recognition failed', details: err.message });
   }
+
+  // Local mode — run Python recognition script
+  const tempPath = path.join(os.tmpdir(), `group_${Date.now()}.jpg`);
+
+  try {
+    await downloadToTemp(cloudinaryUrl, tempPath);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to download image for processing' });
+  }
+
+  const pythonPath = path.join(__dirname, '../python/recognize.py');
+  const py = spawn('python', [pythonPath, tempPath]);
+
+  let stdout = '';
+  let stderr = '';
+
+  py.stdout.on('data', (data) => { stdout += data.toString(); });
+  py.stderr.on('data', (data) => { stderr += data.toString(); });
+
+  py.on('close', async () => {
+    fs.unlink(tempPath, () => {});
+    if (stderr) console.error('PYTHON STDERR:', stderr);
+
+    try {
+      const result = JSON.parse(stdout);
+
+      const record = new Attendance({
+        date: new Date(),
+        groupImage: { url: cloudinaryUrl, public_id: cloudinaryId },
+        present: result.present,
+        absent: result.absent,
+      });
+
+      await record.save();
+      return res.json({ success: true, result });
+    } catch (err) {
+      return res.status(500).json({ error: 'Recognition failed', details: stderr || err.message });
+    }
+  });
 });
 
 // GET /attendance/history

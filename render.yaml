@@ -3,7 +3,7 @@ services:
     name: smart-attendance-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && pip install -r python/requirements.txt
+    buildCommand: npm install
     startCommand: node index.js
     envVars:
       - key: PORT
