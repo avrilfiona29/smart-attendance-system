@@ -3,13 +3,13 @@ services:
     name: smart-attendance-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && pip install -r python/requirements.txt
+    buildCommand: npm install && pip install --only-binary=:all: dlib && pip install -r python/requirements.txt
     startCommand: node index.js
     envVars:
       - key: PORT
         value: 5000
       - key: MONGODB_URI
-        sync: false   # You will paste this manually in Render dashboard
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
