@@ -1,5 +1,5 @@
 # Smart Attendance System
-
+https://smart-attendanceai.netlify.app
 A face recognition-based attendance system using Node.js, Express, and Python for facial recognition.
 
 ## Features
